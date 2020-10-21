@@ -73,14 +73,15 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("send-spine-cords", async ({rx, ry, rz }) => {
+  socket.on("send-spine-cords", async ({x, y, z, w }) => {
     let curUser = getUser(socket.id);
-    console.log(rx + " " + ry + " " + rz);
+    console.log(x + " " + y + " " + z + " " + w);
     socket.broadcast.to(curUser.room).emit("update-spine-cords", {
       id: socket.id,
-      rotx: rx.toString(),
-      roty: ry.toString(),
-      rotz: rz.toString(),
+      rotx: x.toString(),
+      roty: y.toString(),
+      rotz: z.toString(),
+      rotw: w.toString()
     });
   });
 
