@@ -1,7 +1,19 @@
-const users = [];
+let users = [];
 
-const addUser = ({ id, name, room, px, py, pz }) => {
-  const user = { id, name, room, px, py, pz, rx: 0, ry: 0, rz: 0, animation:new Object()};
+const addUser = ({ id, name, room, px, py, pz, host }) => {
+  const user = {
+    id,
+    name,
+    room,
+    px,
+    py,
+    pz,
+    rx: 0,
+    ry: 0,
+    rz: 0,
+    animation: new Object(),
+    host: false,
+  };
   users.push(user);
   return { user };
 };
