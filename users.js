@@ -1,16 +1,12 @@
 let users = [];
+var mergeJSON = require("merge-json");
 
-const addUser = ({ id, name, room, px, py, pz, host }) => {
+const addUser = ({ id, name, room, host }) => {
   const user = {
     id,
     name,
     room,
-    px,
-    py,
-    pz,
-    rx: 0,
-    ry: 0,
-    rz: 0,
+    position: new Object(),
     animation: new Object(),
     host: false,
   };
@@ -26,7 +22,7 @@ const removeUser = (id) => {
 
 const getUser = (id) => users.find((user) => user.id === id);
 
-const setCords = (id, npx, npy, npz, nrx, nry, nrz) => {
+/*const setCords = (id, npx, npy, npz, nrx, nry, nrz) => {
   let curr = getUser(id);
   curr.px = npx;
   curr.py = npy;
@@ -35,6 +31,12 @@ const setCords = (id, npx, npy, npz, nrx, nry, nrz) => {
   curr.rx = nrx;
   curr.ry = nry;
   curr.rz = nrz;
+};*/
+
+const setCords = (id, myJsonObj) => {
+  let curr = getUser(id);
+  var result = mergeJSON.merge(curr.position, myJsonObj);
+  curr.position = result;
 };
 
 const getUsersInRoom = (room) => users.filter((user) => user.room === room);

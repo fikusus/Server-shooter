@@ -23,6 +23,7 @@ const {
 const { Z_ASCII } = require("zlib");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 const { Console, clear } = require("console");
+const { json } = require("express");
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,8 @@ app.get("/", (req, res) => {
 });
 
 io.on("connection", (socket) => {
+  socket.emit("connected");
+
   socket.on("join", async ({ name, room }) => {
     let host = false;
     console.log(name + " joined to " + room);
@@ -41,18 +44,26 @@ io.on("connection", (socket) => {
       await socket.emit("set-host");
       host = true;
     }
-    let x = Math.random() * 10;
-    socket.broadcast.to(room).emit("enter-new-player", {
-      id: socket.id,
-      posx: x.toString(),
-    });
 
-    getUsersInRoom(room).forEach((element) => {
-      socket.emit("enter-new-player", {
-        id: element.id,
-        posx: element.px.toString(),
-      });
-      socket.emit("update-other-player-animator", element.animation);
+    let startPos = await {
+      id: socket.id,
+      name: name,
+      px: "10.5",
+      py: "0",
+      pz: "-15",
+      rx: "0",
+      ry: "0",
+      rz: "0",
+      rw: "0",
+    };
+
+    socket.broadcast.to(room).emit("enter-new-player", startPos);
+
+    getUsersInRoom(room).forEach(async (element) => {
+      jsonPos = element.position;
+      jsonPos["name"] = element.name;
+      await socket.emit("enter-new-player", jsonPos);
+      await socket.emit("update-other-player-animator", element.animation);
     });
 
     if (!host) {
@@ -62,20 +73,15 @@ io.on("connection", (socket) => {
     }
 
     socket.join(room);
+
     await addUser({
       id: socket.id,
       name,
       room: room,
-      px: 10.5,
-      py: 0,
-      pz: -15,
       host,
     });
 
-    socket.emit("display-room", {
-      posx: x.toString(),
-    });
-
+    setCords(socket.id, startPos);
     getUser(socket.id).animation["id"] = socket.id;
   });
 
@@ -90,24 +96,16 @@ io.on("connection", (socket) => {
       .emit("update-other-player-animator", jsonObj);
   });
 
-  socket.on("send-player-cords", async ({ px, py, pz, rx, ry, rz }) => {
+  socket.on("send-player-cords", async (jsonObj) => {
     let curUser = getUser(socket.id);
-    setCords(socket.id, px, py, pz, rx, ry, rz);
-    socket.broadcast.to(curUser.room).emit("update-users-cords", {
-      id: socket.id,
-      posx: px.toString(),
-      posy: py.toString(),
-      posz: pz.toString(),
-      rotx: rx.toString(),
-      roty: ry.toString(),
-      rotz: rz.toString(),
-    });
+    setCords(socket.id, jsonObj);
+    jsonObj["id"] = socket.id;
+    socket.broadcast.to(curUser.room).emit("update-users-cords", jsonObj);
   });
 
   socket.on("send-spine-cords", async (jsonObj) => {
     let curUser = getUser(socket.id);
     jsonObj["id"] = socket.id;
-    console.log(jsonObj);
     socket.broadcast.to(curUser.room).emit("update-spine-cords", jsonObj);
   });
 
@@ -128,19 +126,48 @@ io.on("connection", (socket) => {
     socket.broadcast.to(curUser.room).emit("update-object-info", jsonObj);
   });
 */
+
+  /*socket.on("dieng", async (id) => {
+    console.log(id);
+    let curUser = getUser(socket.id);
+    socket.broadcast.to(curUser.room).emit("die", id);
+  });*/
+
+  socket.on("taking-damage", async (jsonObj) => {
+    console.log(jsonObj);
+    let curUser = getUser(socket.id);
+    socket.broadcast.to(curUser.room).emit("update-taking-damage", jsonObj);
+  });
+
+  socket.on("respawn-player", async () => {
+    console.log("Respawn");
+    let curUser = getUser(socket.id);
+    socket.broadcast
+      .to(curUser.room)
+      .emit("update-respawn-player", { id: curUser.id });
+  });
+
+  socket.on("player-shoot", async () => {
+    let curUser = getUser(socket.id);
+    socket.broadcast
+      .to(curUser.room)
+      .emit("update-player-shoot", { id: curUser.id });
+  });
   socket.on("disconnect", async () => {
     let curUser = getUser(socket.id);
-    console.log(curUser.name + " leave the " + curUser.room);
-    await socket.broadcast
-      .to(curUser.room)
-      .emit("disconnect-from-room", { id: socket.id });
-    removeUser(socket.id);
-    if (curUser.host === true && users != 0) {
-      io.to(users[0].id).emit("set-host");
-    }
-    if (users.length === 0) {
-      console.log("Clear");
-      objects.length = 0;
+    if (curUser) {
+      console.log(curUser.name + " leave the " + curUser.room);
+      await socket.broadcast
+        .to(curUser.room)
+        .emit("disconnect-from-room", { id: socket.id });
+      removeUser(socket.id);
+      if (curUser.host === true && users != 0) {
+        io.to(users[0].id).emit("set-host");
+      }
+      if (users.length === 0) {
+        console.log("Clear");
+        objects.length = 0;
+      }
     }
   });
 });

@@ -18,7 +18,7 @@ const getObject = (id) => objects.find((objectiv) => objectiv.id === id);
 
 const setNewParams = (myJsonObj) => {
   let curr = getUser(id);
-  var result = mergeJSON(curr.parameters, myJsonObj);
+  var result = mergeJSON.merge(curr.parameters, myJsonObj);
   curr.parameters = result;
 };
 
