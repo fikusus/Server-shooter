@@ -81,6 +81,10 @@ io.on("connection", (socket) => {
       host,
     });
 
+    if(host){
+      socket.emit("get-scene-data");
+    }
+
     setCords(socket.id, startPos);
     getUser(socket.id).animation["id"] = socket.id;
   });
@@ -134,6 +138,7 @@ io.on("connection", (socket) => {
   });*/
 
   socket.on("taking-damage", async (jsonObj) => {
+    jsonObj["Who"] = socket.id;
     console.log(jsonObj);
     let curUser = getUser(socket.id);
     socket.broadcast.to(curUser.room).emit("update-taking-damage", jsonObj);
@@ -170,6 +175,37 @@ io.on("connection", (socket) => {
       }
     }
   });
+
+  socket.on("start-zombie-spawning", async (jsonObj) => {
+    let curUser = getUser(socket.id);
+    console.log(jsonObj);
+      spawning(curUser.room,jsonObj["interval"], jsonObj["count"])
+  });
+
+
+  const spawning = async(room, interval, count) => {
+    var rooming = io.sockets.adapter.rooms[room];
+
+    while(true && rooming.length > 0){
+      await sleep(interval);
+      let zombieSpawnInfo = await {
+          pos:getRandomInt(count)
+      };
+      io.to(room).emit("spawn-zombie",zombieSpawnInfo);
+    }
+
+  };
+
+  function sleep(ms){
+    return new Promise(resolve=>{
+        setTimeout(resolve,ms)
+    })   
+}
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
+
 });
 
 server.listen(process.env.PORT || 5000, () =>
