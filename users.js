@@ -9,6 +9,7 @@ const addUser = ({ id, name, room, host }) => {
     position: new Object(),
     animation: new Object(),
     host: false,
+    health:"80"
   };
   users.push(user);
   return { user };
@@ -38,6 +39,13 @@ const setCords = (id, myJsonObj) => {
   var result = mergeJSON.merge(curr.position, myJsonObj);
   curr.position = result;
 };
+
+const setHeath = (id, new_health) => {
+  let curr = getUser(id);
+  curr.health = new_health;
+};
+
+
 
 const getUsersInRoom = (room) => users.filter((user) => user.room === room);
 

@@ -62,6 +62,7 @@ io.on("connection", (socket) => {
     getUsersInRoom(room).forEach(async (element) => {
       jsonPos = element.position;
       jsonPos["name"] = element.name;
+      jsonPos["health"] = element.health;
       await socket.emit("enter-new-player", jsonPos);
       await socket.emit("update-other-player-animator", element.animation);
     });
@@ -138,15 +139,16 @@ io.on("connection", (socket) => {
   });*/
 
   socket.on("taking-damage", async (jsonObj) => {
-    jsonObj["Who"] = socket.id;
     console.log(jsonObj);
     let curUser = getUser(socket.id);
+    curUser.health = jsonObj["damage"]
     socket.broadcast.to(curUser.room).emit("update-taking-damage", jsonObj);
   });
 
   socket.on("respawn-player", async () => {
     console.log("Respawn");
     let curUser = getUser(socket.id);
+    curUser.health = "80"
     socket.broadcast
       .to(curUser.room)
       .emit("update-respawn-player", { id: curUser.id });
@@ -188,8 +190,10 @@ io.on("connection", (socket) => {
 
     while(true && rooming.length > 0){
       await sleep(interval);
+      let uuid = uuidv4();
       let zombieSpawnInfo = await {
-          pos:getRandomInt(count)
+          pos:getRandomInt(count),
+          id:uuid
       };
       io.to(room).emit("spawn-zombie",zombieSpawnInfo);
     }
