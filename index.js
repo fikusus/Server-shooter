@@ -20,6 +20,13 @@ const {
   objects,
 } = require("./objects");
 
+const {
+  addRooms,
+  removeRoom,
+  getRoom,
+  rooms
+} = require("./rooms");
+
 const { Z_ASCII } = require("zlib");
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
 const { Console, clear } = require("console");
@@ -39,24 +46,45 @@ io.on("connection", (socket) => {
   socket.on("join", async ({ name, room }) => {
     let host = false;
     console.log(name + " joined to " + room);
+    var rooming = io.sockets.adapter.rooms[room];
 
-    if (users.length === 0) {
+
+    if (!rooming) {
       await socket.emit("set-host");
       host = true;
+      addRooms(room);
+    }
+    var userRoom = getRoom(room);
+    let startPos
+    if(userRoom.status === "Waiting"){
+      startPos = await {
+        id: socket.id,
+        name: name,
+        wait: "false",
+        px: "10.5",
+        py: "0",
+        pz: "-15",
+        rx: "0",
+        ry: "0",
+        rz: "0",
+        rw: "0",
+      };
+    }else{
+      startPos = await {
+        id: socket.id,
+        name: name,
+        wait: "true",
+        px: "-100",
+        py: "0",
+        pz: "-20",
+        rx: "0",
+        ry: "0",
+        rz: "0",
+        rw: "0",
+      };
     }
 
-    let startPos = await {
-      id: socket.id,
-      name: name,
-      px: "10.5",
-      py: "0",
-      pz: "-15",
-      rx: "0",
-      ry: "0",
-      rz: "0",
-      rw: "0",
-    };
-
+    socket.emit("update-start-position",startPos);
     socket.broadcast.to(room).emit("enter-new-player", startPos);
 
     getUsersInRoom(room).forEach(async (element) => {
@@ -139,7 +167,7 @@ io.on("connection", (socket) => {
   });*/
 
   socket.on("taking-damage", async (jsonObj) => {
-    console.log(jsonObj);
+    //console.log(jsonObj);
     let curUser = getUser(socket.id);
     curUser.health = jsonObj["damage"]
     socket.broadcast.to(curUser.room).emit("update-taking-damage", jsonObj);
@@ -160,6 +188,8 @@ io.on("connection", (socket) => {
       .to(curUser.room)
       .emit("update-player-shoot", { id: curUser.id });
   });
+
+
   socket.on("disconnect", async () => {
     let curUser = getUser(socket.id);
     if (curUser) {
@@ -171,9 +201,12 @@ io.on("connection", (socket) => {
       if (curUser.host === true && users != 0) {
         io.to(users[0].id).emit("set-host");
       }
-      if (users.length === 0) {
+      var rooming = io.sockets.adapter.rooms[curUser.room];
+      console.log(rooming);
+      if (!rooming) {
         console.log("Clear");
         objects.length = 0;
+        removeRoom(curUser.room);
       }
     }
   });
@@ -181,26 +214,88 @@ io.on("connection", (socket) => {
   socket.on("start-zombie-spawning", async (jsonObj) => {
     let curUser = getUser(socket.id);
     console.log(jsonObj);
-      spawning(curUser.room,jsonObj["interval"], jsonObj["count"])
+    getRoom(curUser.room).params =  jsonObj;
+    console.log(getRoom(curUser.room).params);
+    //spawning(curUser.room,jsonObj)
+    
   });
 
+  socket.on("zombie-dieng", async()=>{
+      console.log("Zombie DIE");
+      let curUser = getUser(socket.id);
+      let rooming =  getRoom(curUser.room);
+      rooming.zombies--;
+      if(rooming.zombies === 0 && rooming.status == "killing"){
+        nextWave(rooming);
+      }
+  });
 
-  const spawning = async(room, interval, count) => {
-    var rooming = io.sockets.adapter.rooms[room];
+  socket.on("change-ready-status", async({ready})=>{
+    let curUser = getUser(socket.id);
+    curUser.isReady = ready;
+    let usersInRoom = getUsersInRoom(curUser.room);
+    let allReady = true;
+    for(let i = 0; i < usersInRoom.length;i++){
+      console.log(usersInRoom[i].isReady + "TEST")
+      if(usersInRoom[i].isReady === "False"){
+        allReady = false;
+        break;
+      }
+    }
+    if(allReady && getRoom(curUser.room).status === "Waiting"){
+      nextWave( getRoom(curUser.room));
+    }
+});
 
-    while(true && rooming.length > 0){
-      await sleep(interval);
+
+
+  const nextWave = async(room) =>{
+    room.status = "spawning";
+    if(room.params["waves"] > room.curWave){
+    var rooming = io.sockets.adapter.rooms[room.name];
+    console.log( "Wave " + room.curWave);
+    io.to(room.name).emit("change-wave",{text:"Wave " + room.curWave});
+    for(let j = 0; j <room.params["count" + room.curWave] && rooming.length > 0;j++){
+      await sleep(room.params["interval" + room.curWave]);
       let uuid = uuidv4();
       let zombieSpawnInfo = await {
-          pos:getRandomInt(count),
+          pos:getRandomInt(room.params["spawns"]),
           id:uuid
       };
-      io.to(room).emit("spawn-zombie",zombieSpawnInfo);
+      io.to(room.name).emit("spawn-zombie",zombieSpawnInfo);
+      room.zombies++;
     }
+    room.curWave++;
+    room.status = "killing";
+  }else{
+    io.to(room.name).emit("change-wave",{text:"Win"});
+    console.log( "Win");
+  }
 
-  };
+  }
 
-  function sleep(ms){
+ /* const spawning = async(room, params) => {
+    var rooming = io.sockets.adapter.rooms[room];
+    for(let i = 0; i < params["waves"];i++){
+      console.log( "Wave " + i);
+      io.to(room).emit("change-wave",{text:"Wave " + i});
+      for(let j = 0; j < params["count" + i] && rooming.length > 0;j++){
+        await sleep(params["interval" + i]);
+        let uuid = uuidv4();
+        let zombieSpawnInfo = await {
+            pos:getRandomInt(params["spawns"]),
+            id:uuid
+        };
+        io.to(room).emit("spawn-zombie",zombieSpawnInfo);
+        getRoom(room).zombies++;
+        console.log(getRoom(room).zombies);
+      }
+      while(getRoom(room).zombies !== 0);
+    }
+    io.to(room).emit("change-wave",{text:"Win"});
+  };*/
+
+  async function sleep  (ms){
     return new Promise(resolve=>{
         setTimeout(resolve,ms)
     })   

@@ -9,7 +9,8 @@ const addUser = ({ id, name, room, host }) => {
     position: new Object(),
     animation: new Object(),
     host: false,
-    health:"80"
+    health:"80",
+    isReady :"False"
   };
   users.push(user);
   return { user };
