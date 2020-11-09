@@ -10,5 +10,5 @@ cluster.setupMaster({
 });
 
 // Fork workers as needed.
-for (var i = 0; i < config.numWorkers; i++)
+//for (var i = 0; i < config.numWorkers; i++)
     cluster.fork()
