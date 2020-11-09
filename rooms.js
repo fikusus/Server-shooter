@@ -1,7 +1,7 @@
 var rooms = [];
 
 const addRooms = (name) => {
-  const room = { name: name, zombies: 0, params:null, curWave:0, status:"Waiting"};
+  const room = { name: name, zombies: 0, params:null, curWave:-1, status:"Waiting" , freeSpawnPoint:[]};
   rooms.push(room);
   return { room };
 };
