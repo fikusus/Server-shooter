@@ -10,7 +10,8 @@ const addUser = ({ id, name, room, host }) => {
     animation: new Object(),
     host: false,
     health:"80",
-    isReady :"False"
+    isReady :"False",
+    targetsEnemy:[]
   };
   users.push(user);
   return { user };
