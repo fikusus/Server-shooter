@@ -355,6 +355,6 @@ io.on("connection", (socket) => {
   }
 });
 
-server.listen(process.env.PORT || 5000, () =>
+server.listen( 5000, () =>
   console.log(`Server has started.` + process.env.PORT)
 );
