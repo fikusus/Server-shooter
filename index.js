@@ -38,6 +38,7 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   socket.emit("connected");
   socket.on("join", async ({ name, room }) => {
+    console.log(process.env.PORT);
     let host = false;
     console.log(name + " joined to " + room);
     var rooming = io.sockets.adapter.rooms[room];
