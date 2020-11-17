@@ -23,8 +23,6 @@ const setNewParams = (myJsonObj) => {
 };
 
 const getObjectsInRoom = (room) => {
-  console.log(objects);
-  console.log(room);
   return objects.filter((objectiv) => objectiv.room === room);
 };
 
