@@ -1,14 +1,13 @@
 let users = [];
 var mergeJSON = require("merge-json");
 
-const addUser = ({ id, name, room, host }) => {
+const addUser = ({ id, name, room }) => {
   const user = {
     id,
     name,
     room,
     position: new Object(),
     animation: new Object(),
-    host: false,
     health:"80",
     isReady :"False",
     targetsEnemy:[]

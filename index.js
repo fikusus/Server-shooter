@@ -22,11 +22,6 @@ const {
 
 const { addRooms, removeRoom, getRoom, rooms } = require("./rooms");
 
-const { Z_ASCII } = require("zlib");
-const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require("constants");
-const { Console, clear } = require("console");
-const { json } = require("express");
-
 const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
@@ -38,14 +33,13 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   socket.emit("connected");
 
-
   socket.on("join", async ({ name, room }) => {
-
     var rooming = io.sockets.adapter.rooms[room];
-
+    console.log(name + " " + room);
     if (!rooming) {
       addRooms(room);
-    }
+      socket.emit("get-scene-data");
+    } 
     var userRoom = getRoom(room);
     let startPos;
     if (userRoom.status === "Waiting") {
@@ -80,11 +74,14 @@ io.on("connection", (socket) => {
     socket.broadcast.to(room).emit("enter-new-player", startPos);
 
     getUsersInRoom(room).forEach(async (element) => {
-      jsonPos = element.position;
+      jsonPos = startPos;
+      jsonPos["id"] = element.id;
       jsonPos["name"] = element.name;
       jsonPos["health"] = element.health;
+      
       await socket.emit("enter-new-player", jsonPos);
-      await socket.emit("update-other-player-animator", element.animation);
+      io.to(element.id).emit("getting-user-info",({id:socket.id}));
+      //await socket.emit("update-other-player-animator", element.animation);
     });
 
     if (!rooming) {
@@ -99,39 +96,29 @@ io.on("connection", (socket) => {
       id: socket.id,
       name,
       room: room,
-      host,
     });
-
-    if (host) {
-      socket.emit("get-scene-data");
-    }
 
     setCords(socket.id, startPos);
     getUser(socket.id).animation["id"] = socket.id;
   });
 
   socket.on("update-user-animation", async (jsonObj) => {
-    let curUser = getUser(socket.id);
+    /*let curUser = getUser(socket.id);
     jsonObj["id"] = curUser.id;
     for (var attributename in jsonObj) {
       curUser.animation[attributename] = jsonObj[attributename];
-    }
+    }*/
     socket.broadcast
-      .to(curUser.room)
+      .to(jsonObj["room_id"])
       .emit("update-other-player-animator", jsonObj);
   });
 
   socket.on("send-player-cords", async (jsonObj) => {
-    let curUser = getUser(socket.id);
-    setCords(socket.id, jsonObj);
-    jsonObj["id"] = socket.id;
-    socket.broadcast.to(curUser.room).emit("update-users-cords", jsonObj);
+    socket.broadcast.to(jsonObj["room_id"]).emit("update-users-cords", jsonObj);
   });
 
   socket.on("send-spine-cords", async (jsonObj) => {
-    let curUser = await getUser(socket.id);
-    jsonObj["id"] = socket.id;
-    socket.broadcast.to(curUser.room).emit("update-spine-cords", jsonObj);
+    socket.broadcast.to(jsonObj["room_id"]).emit("update-spine-cords", jsonObj);
   });
 
   socket.on("spawn-new-object", async (jsonObj) => {
@@ -142,17 +129,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-object-info", async (jsonObj) => {
-    let curUser = getUser(socket.id);
-    let curObj = getObject(jsonObj["id"]);
-    //curObj.setNewParams(jsonObj);
-    socket.broadcast.to(curUser.room).emit("update-object-info", jsonObj);
+    //let curUser = getUser(socket.id);
+    socket.broadcast.to(jsonObj["room_id"]).emit("update-object-info", jsonObj);
   });
-
-  /*socket.on("dieng", async (id) => {
-    console.log(id);
-    let curUser = getUser(socket.id);
-    socket.broadcast.to(curUser.room).emit("die", id);
-  });*/
 
   socket.on("taking-damage", async (jsonObj) => {
     let curUser = getUser(socket.id);
@@ -184,10 +163,6 @@ io.on("connection", (socket) => {
         .to(curUser.room)
         .emit("disconnect-from-room", { id: socket.id });
       removeUser(socket.id);
-
-      if (curUser.host === true && users != 0) {
-        io.to(users[0].id).emit("set-host");
-      }
       var rooming = io.sockets.adapter.rooms[curUser.room];
       if (!rooming) {
         console.log("Clear");
@@ -274,7 +249,7 @@ io.on("connection", (socket) => {
             user_id: person.id,
             target_id: uuid,
           };
-          io.to(room.name).emit("set-trget", zombieTargetInfo); 
+          io.to(room.name).emit("set-trget", zombieTargetInfo);
           room.zombies++;
         }
       }
