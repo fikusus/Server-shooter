@@ -33,9 +33,13 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   socket.emit("connected");
 
+  socket.on("pingin", async()=> {
+    socket.emit('pongin');
+  });
+
   socket.on("join", async ({ name, room }) => {
     var rooming = io.sockets.adapter.rooms[room];
-    console.log(name + " " + room);
+    //console.log(name + " " + room);
     if (!rooming) {
       addRooms(room);
       socket.emit("get-scene-data");
@@ -300,6 +304,7 @@ io.on("connection", (socket) => {
     curRoom.freeSpawnPoint.push(Number(jsonObj["pos"]));
     socket.broadcast.to(curUser.room).emit("destroy-obj", jsonObj);
   });
+
 
   socket.on("retarget", async (jsonObj) => {
     let oldUser = getUser(jsonObj["oldKey"]);
