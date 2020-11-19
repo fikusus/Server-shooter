@@ -26,6 +26,27 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
+let InGamePos = {
+  wait: "false",
+  px: "10.5",
+  py: "0",
+  pz: "-15",
+  rx: "0",
+  ry: "0",
+  rz: "0",
+  rw: "0",
+};
+let WaitPos = {
+  wait: "true",
+  px: "-100",
+  py: "0",
+  pz: "-20",
+  rx: "0",
+  ry: "0",
+  rz: "0",
+  rw: "0",
+};
+
 app.get("/", (req, res) => {
   res.send("<h1>Server started</h1>");
 });
@@ -33,8 +54,8 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   socket.emit("connected");
 
-  socket.on("pingin", async()=> {
-    socket.emit('pongin');
+  socket.on("pingin", async () => {
+    socket.emit("pongin");
   });
 
   socket.on("join", async ({ name, room }) => {
@@ -43,49 +64,17 @@ io.on("connection", (socket) => {
     if (!rooming) {
       addRooms(room);
       socket.emit("get-scene-data");
-    } 
-    var userRoom = getRoom(room);
-    let startPos;
-    if (userRoom.status === "Waiting") {
-      startPos = await {
-        id: socket.id,
-        name: name,
-        wait: "false",
-        px: "10.5",
-        py: "0",
-        pz: "-15",
-        rx: "0",
-        ry: "0",
-        rz: "0",
-        rw: "0",
-      };
-    } else {
-      startPos = await {
-        id: socket.id,
-        name: name,
-        wait: "true",
-        px: "-100",
-        py: "0",
-        pz: "-20",
-        rx: "0",
-        ry: "0",
-        rz: "0",
-        rw: "0",
-      };
     }
+    var userRoom = getRoom(room);
+    let startPos = userRoom.status === "Waiting" ? InGamePos : WaitPos;
+    startPos["id"] = socket.id;
+    startPos["name"] = name;
 
     socket.emit("update-start-position", startPos);
     socket.broadcast.to(room).emit("enter-new-player", startPos);
 
     getUsersInRoom(room).forEach(async (element) => {
-      jsonPos = startPos;
-      jsonPos["id"] = element.id;
-      jsonPos["name"] = element.name;
-      jsonPos["health"] = element.health;
-      
-      await socket.emit("enter-new-player", jsonPos);
-      io.to(element.id).emit("getting-user-info",({id:socket.id}));
-      //await socket.emit("update-other-player-animator", element.animation);
+      io.to(element.id).emit("getting-user-info", { id: socket.id });
     });
 
     if (!rooming) {
@@ -102,16 +91,15 @@ io.on("connection", (socket) => {
       room: room,
     });
 
-    setCords(socket.id, startPos);
-    getUser(socket.id).animation["id"] = socket.id;
+    //setCords(socket.id, startPos);
+    //getUser(socket.id).animation["id"] = socket.id;
+  });
+
+  socket.on("getting-other-player-pos", async (jsonObj) => {
+    socket.broadcast.to(jsonObj["room_id"]).emit("enter-new-player", jsonObj);
   });
 
   socket.on("update-user-animation", async (jsonObj) => {
-    /*let curUser = getUser(socket.id);
-    jsonObj["id"] = curUser.id;
-    for (var attributename in jsonObj) {
-      curUser.animation[attributename] = jsonObj[attributename];
-    }*/
     socket.broadcast
       .to(jsonObj["room_id"])
       .emit("update-other-player-animator", jsonObj);
@@ -126,10 +114,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("spawn-new-object", async (jsonObj) => {
-    let curUser = getUser(socket.id);
-    addObject(jsonObj["id"], curUser.room, jsonObj);
+    //let curUser = getUser(socket.id);
+    //addObject(jsonObj["id"], curUser.room, jsonObj);
 
-    socket.broadcast.to(curUser.room).emit("spawn-object", jsonObj);
+    socket.broadcast.to(jsonObj["room_id"]).emit("spawn-object", jsonObj);
   });
 
   socket.on("send-object-info", async (jsonObj) => {
@@ -138,24 +126,26 @@ io.on("connection", (socket) => {
   });
 
   socket.on("taking-damage", async (jsonObj) => {
-    let curUser = getUser(socket.id);
-    curUser.health = jsonObj["damage"];
-    socket.broadcast.to(curUser.room).emit("update-taking-damage", jsonObj);
+    //let curUser = getUser(socket.id);
+    //curUser.health = jsonObj["damage"];
+    socket.broadcast
+      .to(jsonObj["room_id"])
+      .emit("update-taking-damage", jsonObj);
   });
 
-  socket.on("respawn-player", async () => {
-    let curUser = getUser(socket.id);
-    curUser.health = "80";
+  socket.on("respawn-player", async (jsonObj) => {
+    //let curUser = getUser(socket.id);
+    //curUser.health = "80";
     socket.broadcast
-      .to(curUser.room)
-      .emit("update-respawn-player", { id: curUser.id });
+      .to(jsonObj["room_id"])
+      .emit("update-respawn-player", { id: socket.id });
   });
 
-  socket.on("player-shoot", async () => {
-    let curUser = getUser(socket.id);
+  socket.on("player-shoot", async (jsonObj) => {
+    //let curUser = getUser(socket.id);
     socket.broadcast
-      .to(curUser.room)
-      .emit("update-player-shoot", { id: curUser.id });
+      .to(jsonObj["room_id"])
+      .emit("update-player-shoot", { id: socket.id });
   });
 
   socket.on("disconnect", async () => {
@@ -188,8 +178,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("start-zombie-spawning", async (jsonObj) => {
-    let curUser = getUser(socket.id);
-    let curRoom = getRoom(curUser.room);
+    let curRoom = getRoom(jsonObj["room_id"]);
     curRoom.params = jsonObj;
     for (let i = 0; i < jsonObj["ammos"]; i++) {
       curRoom.freeSpawnPoint.push(i);
@@ -233,12 +222,11 @@ io.on("connection", (socket) => {
       var rooming = io.sockets.adapter.rooms[room.name];
       spawnAmmo(room, room.curWave);
       io.to(room.name).emit("change-wave", { text: "Wave " + room.curWave });
-      for (
-        let j = 0;
-        j < room.params["count" + room.curWave] && rooming.length > 0;
-        j++
-      ) {
+      for (let j = 0; j < room.params["count" + room.curWave]; j++) {
         await sleep(room.params["interval" + room.curWave]);
+        if (rooming.length > 0 <= 0) {
+          break;
+        }
         let persons = await getUsersInRoom(room.name);
         let person = persons[Math.floor(Math.random() * persons.length)];
         let uuid = uuidv4();
@@ -267,12 +255,13 @@ io.on("connection", (socket) => {
     var rooming = io.sockets.adapter.rooms[room.name];
     for (
       let i = 0;
-      i < room.params["ammoPerWave" + room.curWave] &&
-      rooming.length > 0 &&
-      wave === room.curWave;
+      i < room.params["ammoPerWave" + room.curWave] && wave === room.curWave;
 
     ) {
       await sleep(room.params["ammoInterval" + room.curWave]);
+      if (rooming.length <= 0) {
+        break;
+      }
       for (
         let j = 0;
         j < room.params["countOfAmmo" + room.curWave] &&
@@ -304,7 +293,6 @@ io.on("connection", (socket) => {
     curRoom.freeSpawnPoint.push(Number(jsonObj["pos"]));
     socket.broadcast.to(curUser.room).emit("destroy-obj", jsonObj);
   });
-
 
   socket.on("retarget", async (jsonObj) => {
     let oldUser = getUser(jsonObj["oldKey"]);
