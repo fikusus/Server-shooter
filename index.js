@@ -60,7 +60,6 @@ io.on("connection", (socket) => {
 
   socket.on("join", async ({ name, room }) => {
     var rooming = io.sockets.adapter.rooms[room];
-    //console.log(name + " " + room);
     if (!rooming) {
       addRooms(room);
       socket.emit("get-scene-data");
@@ -95,57 +94,16 @@ io.on("connection", (socket) => {
     //getUser(socket.id).animation["id"] = socket.id;
   });
 
-  socket.on("getting-other-player-pos", async (jsonObj) => {
-    socket.broadcast.to(jsonObj["room_id"]).emit("enter-new-player", jsonObj);
-  });
-
-  socket.on("update-user-animation", async (jsonObj) => {
-    socket.broadcast
-      .to(jsonObj["room_id"])
-      .emit("update-other-player-animator", jsonObj);
-  });
-
-  socket.on("send-player-cords", async (jsonObj) => {
-    socket.broadcast.to(jsonObj["room_id"]).emit("update-users-cords", jsonObj);
-  });
-
-  socket.on("send-spine-cords", async (jsonObj) => {
-    socket.broadcast.to(jsonObj["room_id"]).emit("update-spine-cords", jsonObj);
-  });
-
-  socket.on("spawn-new-object", async (jsonObj) => {
-    //let curUser = getUser(socket.id);
-    //addObject(jsonObj["id"], curUser.room, jsonObj);
-
-    socket.broadcast.to(jsonObj["room_id"]).emit("spawn-object", jsonObj);
-  });
-
-  socket.on("send-object-info", async (jsonObj) => {
-    //let curUser = getUser(socket.id);
-    socket.broadcast.to(jsonObj["room_id"]).emit("update-object-info", jsonObj);
-  });
-
-  socket.on("taking-damage", async (jsonObj) => {
-    //let curUser = getUser(socket.id);
-    //curUser.health = jsonObj["damage"];
-    socket.broadcast
-      .to(jsonObj["room_id"])
-      .emit("update-taking-damage", jsonObj);
-  });
-
-  socket.on("respawn-player", async (jsonObj) => {
-    //let curUser = getUser(socket.id);
-    //curUser.health = "80";
-    socket.broadcast
-      .to(jsonObj["room_id"])
-      .emit("update-respawn-player", { id: socket.id });
-  });
 
   socket.on("player-shoot", async (jsonObj) => {
     //let curUser = getUser(socket.id);
     socket.broadcast
       .to(jsonObj["room_id"])
       .emit("update-player-shoot", { id: socket.id });
+  });
+
+  socket.on("sending-event", async (jsonObj) => {
+    socket.broadcast.to(jsonObj["room_id"]).emit(jsonObj["resiver"], jsonObj);
   });
 
   socket.on("disconnect", async () => {
